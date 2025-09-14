@@ -39,9 +39,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   // Function to determine account type based on username
   String _determineAccountType(String username) {
-    if (username.endsWith('.ADMIN\$')) {
+    if (username.endsWith('.ADMIN#')) {
       return 'admin';
-    } else if (username.endsWith('.STAFF\$')) {
+    } else if (username.endsWith('.STAFF#')) {
       return 'editor';
     }
     return 'viewer';
@@ -49,7 +49,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   // Function to clean username (remove suffix)
   String _cleanUsername(String username) {
-    if (username.endsWith('.ADMIN\$') || username.endsWith('.STAFF\$')) {
+    if (username.endsWith('.ADMIN#') || username.endsWith('.STAFF#')) {
       return username.substring(0, username.lastIndexOf('.'));
     }
     return username;
@@ -270,7 +270,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _usernameController,
                   decoration: const InputDecoration(
                     labelText: 'Username',
-                    hintText: 'Add .STAFF$ or .ADMIN$ for special access',
+                    hintText: 'Add .STAFF# or .ADMIN# for special access',
                     prefixIcon: Icon(Icons.account_circle_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(12)),
