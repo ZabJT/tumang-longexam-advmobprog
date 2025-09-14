@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/item_model.dart';
 import '../services/item_service.dart';
+import '../services/user_service.dart';
 import '../widgets/modern_loading.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -11,9 +12,11 @@ class DetailScreen extends StatefulWidget {
     super.key,
     required this.item,
     this.isFromArchive = false,
+    this.isPublicView = false,
   });
   final Item item;
   final bool isFromArchive;
+  final bool isPublicView;
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
@@ -34,7 +37,12 @@ class _DetailScreenState extends State<DetailScreen> {
   final ImagePicker _picker = ImagePicker();
 
   bool get _isItemInactive => _item.isActive.toLowerCase() == 'false';
-  bool get _canEdit => !_isItemInactive; // Only allow editing if item is active
+  bool get _canEdit =>
+      !widget.isPublicView && // Can't edit in public view
+      !_isItemInactive &&
+      _userType !=
+          'viewer'; // Only allow editing if item is active and user is not a viewer
+  String _userType = 'viewer'; // Default to viewer for safety
 
   @override
   void initState() {
@@ -46,7 +54,28 @@ class _DetailScreenState extends State<DetailScreen> {
     _qtyTotalCtrl = TextEditingController(text: _item.qtyTotal);
     _qtyAvailableCtrl = TextEditingController(text: _item.qtyAvailable);
     _isActive = _item.isActive.toLowerCase() == 'true';
+
+    if (!widget.isPublicView) {
+      _loadUserType();
+    } else {
+      _userType = 'public'; // Set as public for public view
+    }
     super.initState();
+  }
+
+  Future<void> _loadUserType() async {
+    try {
+      final userService = UserService();
+      final userData = await userService.getUserData();
+      setState(() {
+        _userType = userData['type']?.toLowerCase() ?? 'viewer';
+      });
+    } catch (e) {
+      // If we can't get user type, default to viewer for safety
+      setState(() {
+        _userType = 'viewer';
+      });
+    }
   }
 
   @override
@@ -520,8 +549,230 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  Widget _buildBuyerView() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_item.name.isEmpty ? 'Product Details' : _item.name),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Product Image
+              Container(
+                width: double.infinity,
+                height: 300.h,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _item.photoUrl.isNotEmpty
+                      ? Image.network(
+                          _item.photoUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            print('Image loading error: $error');
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 64,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Image unavailable',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                        ),
+                ),
+              ),
+              SizedBox(height: 24.h),
+
+              // Product Name
+              Text(
+                _item.name.isEmpty ? 'Untitled Product' : _item.name,
+                style: TextStyle(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 16.h),
+
+              // Product Description
+              if (_item.description.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Description',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    ...(_item.description.map(
+                      (desc) => Padding(
+                        padding: EdgeInsets.only(bottom: 4.h),
+                        child: Text(
+                          desc,
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            color: Colors.grey[700],
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    )),
+                    SizedBox(height: 16.h),
+                  ],
+                ),
+
+              // Stock Information
+              Container(
+                padding: EdgeInsets.all(16.w),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.inventory_2, color: Colors.blue[600], size: 20),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'In Stock: ${_item.qtyAvailable} available',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 32.h),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _addToCart,
+                      icon: const Icon(Icons.shopping_cart_outlined),
+                      label: const Text('Add to Cart'),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        side: BorderSide(color: Theme.of(context).primaryColor),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _placeOrder,
+                      icon: const Icon(Icons.shopping_bag),
+                      label: const Text('Place Order'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16.h),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addToCart() {
+    // TODO: Implement add to cart functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Added to cart!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _placeOrder() {
+    // TODO: Implement place order functionality
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Place Order'),
+        content: const Text('Order functionality will be implemented soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Show different UI for viewers (buyers) vs editors/admins
+    if (_userType == 'viewer') {
+      return _buildBuyerView();
+    }
+
     return Scaffold(
       appBar: AppBar(title: Text(_item.name.isEmpty ? 'Item' : _item.name)),
       body: SafeArea(
@@ -663,20 +914,50 @@ class _DetailScreenState extends State<DetailScreen> {
                   ),
                 ],
                 SizedBox(height: 16.h),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: (_isSaving || !_canEdit) ? null : _save,
-                    icon: _isSaving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
-                    label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+                if (_userType == 'viewer')
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(16.w),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.blue[600],
+                          size: 20,
+                        ),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            'As a viewer, you can browse items but cannot edit them. Contact an admin or editor to make changes.',
+                            style: TextStyle(
+                              color: Colors.blue[800],
+                              fontSize: 12.sp,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: (_isSaving || !_canEdit) ? null : _save,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save),
+                      label: Text(_isSaving ? 'Saving...' : 'Save Changes'),
+                    ),
                   ),
-                ),
                 SizedBox(height: 8.h),
                 SizedBox(
                   width: double.infinity,

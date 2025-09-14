@@ -11,6 +11,9 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/admin_approval_screen.dart';
+import 'screens/loading_screen.dart';
+import 'screens/viewer_home_screen.dart';
+import 'screens/public_home_screen.dart';
 import 'constants.dart';
 
 void main() async {
@@ -48,13 +51,16 @@ class MainApp extends StatelessWidget {
             theme: _buildLightTheme(),
             darkTheme: _buildDarkTheme(),
             themeMode: themeModel.isDark ? ThemeMode.dark : ThemeMode.light,
-            title: 'Tumang Long Exam',
-            initialRoute: '/splash',
+            title: 'Z-Customs',
+            initialRoute: '/loading',
             routes: {
+              '/public-home': (context) => const PublicHomeScreen(),
+              '/loading': (context) => const LoadingScreen(),
               '/splash': (context) => const SplashScreen(),
               '/login': (context) => const LoginScreen(),
               '/signup': (context) => const SignUpScreen(),
               '/home': (context) => const HomeScreen(),
+              '/viewer-home': (context) => const ViewerHomeScreen(),
               '/settings': (context) => const SettingsScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/admin-approval': (context) => const AdminApprovalScreen(),
@@ -67,9 +73,10 @@ class MainApp extends StatelessWidget {
 }
 
 ThemeData _buildLightTheme() {
-  const primaryColor = Color(0xFF2196F3); // Blue
-  const primaryColorDark = Color(0xFF1976D2);
-  const primaryColorLight = Color(0xFFBBDEFB);
+  const primaryColor = Color(0xFF202A44); // Dark Blue (same as loading screen)
+  const primaryColorDark = Color(0xFF1A2238);
+  const primaryColorLight = Color(0xFF2A3A54);
+  const backgroundColor = Color(0xFFF0F8FF); // Alice Blue
 
   return ThemeData(
     useMaterial3: true,
@@ -80,6 +87,7 @@ ThemeData _buildLightTheme() {
     primaryColor: primaryColor,
     primaryColorDark: primaryColorDark,
     primaryColorLight: primaryColorLight,
+    scaffoldBackgroundColor: backgroundColor,
     appBarTheme: const AppBarTheme(
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,
@@ -106,9 +114,10 @@ ThemeData _buildLightTheme() {
 }
 
 ThemeData _buildDarkTheme() {
-  const primaryColor = Color(0xFF2196F3); // Blue
-  const primaryColorDark = Color(0xFF1976D2);
-  const primaryColorLight = Color(0xFFBBDEFB);
+  const primaryColor = Color(0xFF202A44); // Dark Blue (same as loading screen)
+  const primaryColorDark = Color(0xFF1A2238);
+  const primaryColorLight = Color(0xFF2A3A54);
+  const backgroundColor = Color(0xFF1A1A1A); // Dark background
 
   return ThemeData(
     useMaterial3: true,
@@ -119,6 +128,7 @@ ThemeData _buildDarkTheme() {
     primaryColor: primaryColor,
     primaryColorDark: primaryColorDark,
     primaryColorLight: primaryColorLight,
+    scaffoldBackgroundColor: backgroundColor,
     appBarTheme: const AppBarTheme(
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,

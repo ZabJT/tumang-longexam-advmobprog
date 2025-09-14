@@ -112,7 +112,7 @@ class UserService {
     final token = userData['token'];
 
     if (token == null || token.isEmpty) {
-      throw Exception('No authentication token found');
+      throw Exception('No authentication token found. Please login again.');
     }
 
     final response = await http.get(
@@ -126,6 +126,10 @@ class UserService {
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      // Token expired or invalid - clear stored data and redirect to login
+      await logout();
+      throw Exception('Session expired. Please login again.');
     } else {
       throw Exception('Failed to load user profile: ${response.statusCode}');
     }

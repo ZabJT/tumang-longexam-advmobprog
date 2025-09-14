@@ -41,8 +41,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Login successful!')));
-        // Navigate to home screen
-        Navigator.pushReplacementNamed(context, '/home');
+        // Navigate to appropriate screen based on user type
+        final userType = response['type']?.toLowerCase() ?? 'viewer';
+        if (userType == 'admin' || userType == 'editor') {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          Navigator.pushReplacementNamed(context, '/viewer-home');
+        }
       } catch (e) {
         if (!mounted) return;
         // Show error message
@@ -72,12 +77,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Car Icon Image
+                  Center(
+                    child: Image.asset(
+                      'assets/images/Car_Icon.png',
+                      height: 180,
+                      width: 180,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   const Text(
                     'Welcome Back',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 24),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,

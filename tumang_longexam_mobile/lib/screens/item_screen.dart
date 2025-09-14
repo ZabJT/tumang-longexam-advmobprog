@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/item_model.dart';
 import '../services/item_service.dart';
+import '../services/user_service.dart';
 import '../widgets/custom_text.dart';
 import '../widgets/modern_loading.dart';
 import 'detail_screen.dart';
@@ -20,11 +21,28 @@ class _ItemScreenState extends State<ItemScreen> {
   final _svc = ItemService();
   final List<Item> _items = [];
   late Future<void> _loadFuture;
+  String _userType = 'viewer'; // Default to viewer for safety
 
   @override
   void initState() {
     super.initState();
     _loadFuture = _loadItems();
+    _loadUserType();
+  }
+
+  Future<void> _loadUserType() async {
+    try {
+      final userService = UserService();
+      final userData = await userService.getUserData();
+      setState(() {
+        _userType = userData['type']?.toLowerCase() ?? 'viewer';
+      });
+    } catch (e) {
+      // If we can't get user type, default to viewer for safety
+      setState(() {
+        _userType = 'viewer';
+      });
+    }
   }
 
   Future<void> _loadItems() async {
@@ -149,6 +167,45 @@ class _ItemScreenState extends State<ItemScreen> {
 
     void _showUrlInputDialog() {
       final urlController = TextEditingController(text: photoCtrl.text);
+      final formKey = GlobalKey<FormState>();
+
+      // URL validation function
+      String? validateUrl(String? value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter a URL';
+        }
+
+        final url = value.trim();
+        final uri = Uri.tryParse(url);
+
+        if (uri == null || !uri.hasScheme) {
+          return 'Please enter a valid URL (e.g., https://example.com/image.jpg)';
+        }
+
+        if (!['http', 'https'].contains(uri.scheme.toLowerCase())) {
+          return 'URL must start with http:// or https://';
+        }
+
+        // Check if it looks like an image URL
+        final imageExtensions = [
+          '.jpg',
+          '.jpeg',
+          '.png',
+          '.gif',
+          '.webp',
+          '.bmp',
+        ];
+        final hasImageExtension = imageExtensions.any(
+          (ext) => url.toLowerCase().contains(ext),
+        );
+
+        if (!hasImageExtension) {
+          return 'URL should point to an image file (.jpg, .png, .gif, etc.)';
+        }
+
+        return null;
+      }
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -156,13 +213,49 @@ class _ItemScreenState extends State<ItemScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text('Enter Image URL'),
-          content: TextField(
-            controller: urlController,
-            decoration: const InputDecoration(
-              hintText: 'https://example.com/image.jpg',
-              border: OutlineInputBorder(),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: urlController,
+                  decoration: const InputDecoration(
+                    hintText: 'https://example.com/image.jpg',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.link),
+                  ),
+                  keyboardType: TextInputType.url,
+                  validator: validateUrl,
+                  autofocus: true,
+                ),
+                SizedBox(height: 12.h),
+                Container(
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Supported formats:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.sp,
+                        ),
+                      ),
+                      Text(
+                        'JPG, PNG, GIF, WebP, BMP',
+                        style: TextStyle(fontSize: 11.sp),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            keyboardType: TextInputType.url,
           ),
           actions: [
             TextButton(
@@ -171,10 +264,16 @@ class _ItemScreenState extends State<ItemScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                // Update the local state
-                photoCtrl.text = urlController.text.trim();
-                selectedImage = null;
-                Navigator.pop(context);
+                if (formKey.currentState!.validate()) {
+                  // Update the local state
+                  photoCtrl.text = urlController.text.trim();
+                  selectedImage = null;
+                  Navigator.pop(context);
+                  ModernSnackBar.success(
+                    context,
+                    'Image URL set successfully!',
+                  );
+                }
               },
               child: const Text('Set URL'),
             ),
@@ -540,15 +639,137 @@ class _ItemScreenState extends State<ItemScreen> {
         width: 72.sp,
         height: 72.sp,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          width: 72.sp,
-          height: 72.sp,
-          decoration: BoxDecoration(
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: 72.sp,
+            height: 72.sp,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: 72.sp,
+            height: 72.sp,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Icon(Icons.broken_image_outlined),
+          );
+        },
+      ),
+    );
+  }
+
+  bool get _canAddItems => _userType == 'admin' || _userType == 'editor';
+
+  Widget _buildBuyerItemCard(Item item, String subtitle) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product Image
+          ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
+            child: Container(
+              width: 80.w,
+              height: 80.h,
+              child: item.photoUrl.isNotEmpty
+                  ? Image.network(
+                      item.photoUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.image_not_supported),
+                    ),
+            ),
           ),
-          child: const Icon(Icons.broken_image_outlined),
-        ),
+          SizedBox(width: 12.w),
+
+          // Product Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name.isEmpty ? 'Untitled Product' : item.name,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 14.sp, color: Colors.grey[600]),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2,
+                      size: 16.sp,
+                      color: Colors.green[600],
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '${item.qtyAvailable} in stock',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Colors.green[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Arrow Icon
+          Icon(Icons.chevron_right, color: Colors.grey[400]),
+        ],
       ),
     );
   }
@@ -556,10 +777,13 @@ class _ItemScreenState extends State<ItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddItemDialog,
-        child: const Icon(Icons.add),
-      ),
+      backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
+      floatingActionButton: _canAddItems
+          ? FloatingActionButton(
+              onPressed: _openAddItemDialog,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: FutureBuilder<void>(
         future: _loadFuture,
         builder: (_, snap) {
@@ -578,7 +802,33 @@ class _ItemScreenState extends State<ItemScreen> {
             return Center(
               child: Padding(
                 padding: EdgeInsets.all(36.w),
-                child: CustomText(text: 'No items to display...'),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64.sp,
+                      color: Colors.grey[400],
+                    ),
+                    SizedBox(height: 16.h),
+                    CustomText(
+                      text: 'No items available',
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      _userType == 'viewer'
+                          ? 'Browse our catalog when items are added'
+                          : 'Add your first item to get started',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           }
@@ -624,23 +874,25 @@ class _ItemScreenState extends State<ItemScreen> {
                       }
                     }
                   },
-                  child: ListTile(
-                    leading: _leadingThumb(item),
-                    title: CustomText(
-                      text: item.name.isEmpty ? 'Untitled' : item.name,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      maxLines: 2,
-                    ),
-                    subtitle: CustomText(text: subtitle, maxLines: 2),
-                    trailing: SizedBox(
-                      height: double.infinity,
-                      child: GestureDetector(
-                        onTap: () => debugPrint('More ${item.iid}'),
-                        child: const Icon(Icons.keyboard_arrow_right),
-                      ),
-                    ),
-                  ),
+                  child: _userType == 'viewer'
+                      ? _buildBuyerItemCard(item, subtitle)
+                      : ListTile(
+                          leading: _leadingThumb(item),
+                          title: CustomText(
+                            text: item.name.isEmpty ? 'Untitled' : item.name,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            maxLines: 2,
+                          ),
+                          subtitle: CustomText(text: subtitle, maxLines: 2),
+                          trailing: SizedBox(
+                            height: double.infinity,
+                            child: GestureDetector(
+                              onTap: () => debugPrint('More ${item.iid}'),
+                              child: const Icon(Icons.keyboard_arrow_right),
+                            ),
+                          ),
+                        ),
                 ),
               );
             },

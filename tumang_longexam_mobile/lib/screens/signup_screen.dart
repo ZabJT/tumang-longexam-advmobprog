@@ -71,8 +71,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
 
-        // Navigate to login screen
-        Navigator.pushReplacementNamed(context, '/login');
+        // Navigate to public home screen
+        Navigator.pushReplacementNamed(context, '/public-home');
       } catch (e) {
         if (!mounted) return;
         // Show error message
