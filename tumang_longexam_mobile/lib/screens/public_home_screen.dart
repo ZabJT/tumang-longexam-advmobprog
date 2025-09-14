@@ -103,6 +103,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Image.asset(
           'assets/images/Car_Icon.png',
           height: 70.h,
@@ -198,6 +199,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                       ),
                       child: TextField(
                         controller: _searchController,
+                        textAlign: TextAlign.left,
                         onChanged: (value) {
                           setState(() {
                             _searchQuery = value.toLowerCase();
@@ -206,6 +208,10 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                         decoration: InputDecoration(
                           hintText: 'Search cars by name, brand, or model...',
                           border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16.w,
+                            vertical: 12.h,
+                          ),
                           prefixIcon: const Icon(
                             Icons.search,
                             color: Color(0xFF202A44),

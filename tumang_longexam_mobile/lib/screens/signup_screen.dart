@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/user_service.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -21,7 +22,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _addressController = TextEditingController();
   final _userService = UserService();
   bool _isLoading = false;
-  String _selectedType = 'editor'; // Default to editor
 
   @override
   void dispose() {
@@ -37,6 +37,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+  // Function to determine account type based on username
+  String _determineAccountType(String username) {
+    if (username.endsWith('.ADMIN\$')) {
+      return 'admin';
+    } else if (username.endsWith('.STAFF\$')) {
+      return 'editor';
+    }
+    return 'viewer';
+  }
+
+  // Function to clean username (remove suffix)
+  String _cleanUsername(String username) {
+    if (username.endsWith('.ADMIN\$') || username.endsWith('.STAFF\$')) {
+      return username.substring(0, username.lastIndexOf('.'));
+    }
+    return username;
+  }
+
   Future<void> _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -44,6 +62,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       });
 
       try {
+        final rawUsername = _usernameController.text;
+        final accountType = _determineAccountType(rawUsername);
+        final cleanUsername = _cleanUsername(rawUsername);
+
         final userData = {
           'firstName': _firstNameController.text,
           'lastName': _lastNameController.text,
@@ -51,10 +73,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'gender': _genderController.text,
           'contactNumber': _contactController.text,
           'email': _emailController.text,
-          'username': _usernameController.text,
+          'username': cleanUsername,
           'password': _passwordController.text,
           'address': _addressController.text,
-          'type': _selectedType,
+          'type': accountType,
         };
 
         await _userService.registerUser(userData);
@@ -63,7 +85,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         // Show appropriate message based on user type
         String message = 'Registration successful!';
-        if (_selectedType == 'admin' || _selectedType == 'editor') {
+        if (accountType == 'admin' || accountType == 'editor') {
           message = 'Registration successful! Please wait for admin approval.';
         }
 
@@ -92,10 +114,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
+      backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF202A44),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Sign Up'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.w),
           child: Form(
             key: _formKey,
             child: Column(
@@ -103,71 +131,107 @@ class _SignUpScreenState extends State<SignUpScreen> {
               children: [
                 const Text(
                   'Create Account',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _firstNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'First Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your first name';
-                    }
-                    return null;
-                  },
+                SizedBox(height: 32.h),
+                // First Name and Last Name in a row
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _firstNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'First Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lastNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Last Name',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Last Name',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your last name';
-                    }
-                    return null;
-                  },
+                SizedBox(height: 16.h),
+
+                // Age and Gender in a row
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _ageController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Age',
+                          prefixIcon: Icon(Icons.cake_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _genderController,
+                        decoration: const InputDecoration(
+                          labelText: 'Gender',
+                          prefixIcon: Icon(Icons.person_outline),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _ageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Age',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your age';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _genderController,
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your gender';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
+
                 TextFormField(
                   controller: _contactController,
+                  keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Contact Number',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -176,13 +240,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
+
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -196,12 +264,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
+
                 TextFormField(
                   controller: _usernameController,
                   decoration: const InputDecoration(
                     labelText: 'Username',
-                    border: OutlineInputBorder(),
+                    hintText: 'Add .STAFF$ or .ADMIN$ for special access',
+                    prefixIcon: Icon(Icons.account_circle_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -210,13 +283,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
+
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
                   decoration: const InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock_outline),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -228,13 +305,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
+
                 TextFormField(
                   controller: _addressController,
-                  maxLines: 3,
+                  maxLines: 2,
                   decoration: const InputDecoration(
                     labelText: 'Address',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -243,53 +324,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'Account Type',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'viewer',
-                      child: Text('Viewer (Read Only)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'editor',
-                      child: Text('Editor (Can Edit)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'admin',
-                      child: Text('Admin (Full Access)'),
-                    ),
-                  ],
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        _selectedType = newValue;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24.h),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleSignUp,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: const Color(0xFF202A44),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 2,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? SizedBox(
+                          height: 20.h,
+                          width: 20.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
                         )
-                      : const Text('Sign Up', style: TextStyle(fontSize: 16)),
+                      : Text('Sign Up', style: TextStyle(fontSize: 16.sp)),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
                 TextButton(
                   onPressed: () {
                     Navigator.pushReplacementNamed(context, '/login');
