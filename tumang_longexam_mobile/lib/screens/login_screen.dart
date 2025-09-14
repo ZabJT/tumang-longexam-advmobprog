@@ -46,7 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (userType == 'admin' || userType == 'editor') {
           Navigator.pushReplacementNamed(context, '/home');
         } else {
-          Navigator.pushReplacementNamed(context, '/viewer-home');
+          // For viewers, go back to public home and return success result
+          Navigator.pop(context, true);
         }
       } catch (e) {
         if (!mounted) return;

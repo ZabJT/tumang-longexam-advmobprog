@@ -707,9 +707,9 @@ class _DetailScreenState extends State<DetailScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _addToCart,
-                      icon: const Icon(Icons.shopping_cart_outlined),
-                      label: const Text('Add to Cart'),
+                      onPressed: _makeInquiry,
+                      icon: const Icon(Icons.contact_support_outlined),
+                      label: const Text('Make Inquiry'),
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         side: BorderSide(color: Theme.of(context).primaryColor),
@@ -719,9 +719,9 @@ class _DetailScreenState extends State<DetailScreen> {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _placeOrder,
-                      icon: const Icon(Icons.shopping_bag),
-                      label: const Text('Place Order'),
+                      onPressed: _bookTestDrive,
+                      icon: const Icon(Icons.directions_car),
+                      label: const Text('Book Test Drive'),
                       style: ElevatedButton.styleFrom(
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         backgroundColor: Theme.of(context).primaryColor,
@@ -739,23 +739,21 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
-  void _addToCart() {
-    // TODO: Implement add to cart functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Added to cart!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
+  void _makeInquiry() {
+    // Check if user is logged in
+    if (widget.isPublicView) {
+      _showLoginRequiredDialog('make inquiries');
+      return;
+    }
 
-  void _placeOrder() {
-    // TODO: Implement place order functionality
+    // TODO: Implement inquiry functionality
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Place Order'),
-        content: const Text('Order functionality will be implemented soon!'),
+        title: const Text('Make Inquiry'),
+        content: const Text(
+          'Inquiry functionality will be implemented soon! You can contact us directly for more information about this vehicle.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -766,10 +764,58 @@ class _DetailScreenState extends State<DetailScreen> {
     );
   }
 
+  void _bookTestDrive() {
+    // Check if user is logged in
+    if (widget.isPublicView) {
+      _showLoginRequiredDialog('book test drives');
+      return;
+    }
+
+    // TODO: Implement test drive booking functionality
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Book Test Drive'),
+        content: const Text(
+          'Test drive booking functionality will be implemented soon! Contact us to schedule a test drive for this vehicle.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLoginRequiredDialog(String action) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Login Required'),
+        content: Text('Please login to $action'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/login');
+            },
+            child: const Text('Login'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Show different UI for viewers (buyers) vs editors/admins
-    if (_userType == 'viewer') {
+    if (_userType == 'viewer' || _userType == 'public') {
       return _buildBuyerView();
     }
 

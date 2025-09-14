@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import '../services/user_service.dart';
 import '../widgets/custom_text.dart';
 import '../models/item_model.dart';
 import '../services/item_service.dart';
+import '../providers/theme_provider.dart';
 import 'detail_screen.dart';
 
 class PublicHomeScreen extends StatefulWidget {
@@ -18,10 +20,84 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   final _userService = UserService();
   List<Item> _featuredItems = [];
   bool _isLoading = true;
+  String _searchQuery = '';
   bool _isLoggedIn = false;
   Map<String, dynamic> _userData = {};
-  String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  int _selectedBottomNavIndex = 0;
+
+  // Get adaptive brand color based on theme
+  Color _getBrandColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? const Color(0xFF4A5A7A)
+        : const Color(0xFF202A44); // Lighter blue for dark mode
+  }
+
+  Color _getBrandColorDark(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? const Color(0xFF3A4A6A)
+        : const Color(0xFF1A2238); // Darker shade for dark mode
+  }
+
+  // Get adaptive text color - white in dark mode, theme color in light mode
+  Color _getTextColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? Colors.white
+        : Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+  }
+
+  Color _getSecondaryTextColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? Colors.white70
+        : Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
+  }
+
+  // Get adaptive shadows - no shadows in dark mode
+  List<BoxShadow> _getShadows(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? []
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ];
+  }
+
+  List<BoxShadow> _getCardShadows(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? []
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ];
+  }
+
+  List<BoxShadow> _getButtonShadows(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? []
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ];
+  }
 
   @override
   void initState() {
@@ -51,26 +127,76 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         _isLoading = false;
       });
 
-      // Check if user is logged in
-      final userData = await _userService.getUserData();
+      // Always start as unauthenticated - authentication will be checked only when user logs in
       setState(() {
-        _isLoggedIn = userData['token'] != null && userData['token'].isNotEmpty;
-        _userData = userData;
+        _isLoggedIn = false;
+        _userData = {};
       });
     } catch (e) {
       setState(() => _isLoading = false);
     }
   }
 
-  void _navigateToLogin() {
-    Navigator.pushNamed(context, '/login');
+  void _navigateToLogin() async {
+    final result = await Navigator.pushNamed(context, '/login');
+    // Check if login was successful and update authentication state
+    if (result == true) {
+      await _checkAuthenticationState();
+    }
+  }
+
+  Future<void> _checkAuthenticationState() async {
+    try {
+      final userData = await _userService.getUserData();
+      final isLoggedIn =
+          userData['token'] != null && userData['token'].isNotEmpty;
+
+      print('Public Home Screen - After Login - User Data: $userData');
+      print('Public Home Screen - After Login - Is Logged In: $isLoggedIn');
+
+      setState(() {
+        _isLoggedIn = isLoggedIn;
+        _userData = userData;
+      });
+    } catch (e) {
+      print('Error checking authentication state: $e');
+      setState(() {
+        _isLoggedIn = false;
+        _userData = {};
+      });
+    }
+  }
+
+  void _onBottomNavTapped(int index) {
+    setState(() {
+      _selectedBottomNavIndex = index;
+    });
+
+    switch (index) {
+      case 0:
+        // Home - already on home page
+        break;
+      case 1:
+        // Wishlist
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Wishlist coming soon!')));
+        break;
+      case 2:
+        // Profile
+        Navigator.pushNamed(context, '/profile');
+        break;
+    }
   }
 
   void _navigateToDetail(Item item) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DetailScreen(item: item, isPublicView: true),
+        builder: (context) => DetailScreen(
+          item: item,
+          isPublicView: !_isLoggedIn, // Use public view only if not logged in
+        ),
       ),
     );
   }
@@ -98,10 +224,40 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     );
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _userService.logout();
+              setState(() {
+                _isLoggedIn = false;
+                _userData = {};
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Logged out successfully')),
+              );
+            },
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Image.asset(
@@ -109,7 +265,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
           height: 70.h,
           fit: BoxFit.contain,
         ),
-        backgroundColor: const Color(0xFF202A44),
+        backgroundColor: _getBrandColor(context), // Adaptive brand color
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -120,15 +276,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
             ),
           ] else ...[
             IconButton(
-              icon: const Icon(Icons.person_outline),
+              icon: const Icon(Icons.settings),
               onPressed: () {
-                // Navigate to appropriate home based on user type
-                final userType = _userData['type']?.toLowerCase() ?? 'viewer';
-                if (userType == 'admin' || userType == 'editor') {
-                  Navigator.pushNamed(context, '/home');
-                } else {
-                  Navigator.pushNamed(context, '/viewer-home');
-                }
+                Navigator.pushNamed(context, '/settings');
               },
             ),
           ],
@@ -146,19 +296,15 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                 padding: EdgeInsets.all(24.w),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [const Color(0xFF202A44), const Color(0xFF1A2238)],
+                    colors: [
+                      _getBrandColor(context), // Adaptive brand color
+                      _getBrandColorDark(context), // Adaptive darker shade
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  boxShadow: _getShadows(context),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,16 +332,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                         vertical: 4.h,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            spreadRadius: 1,
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
+                        boxShadow: _getCardShadows(context),
                       ),
                       child: TextField(
                         controller: _searchController,
@@ -325,9 +464,11 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
       ),
       bottomNavigationBar: _isLoggedIn
           ? BottomNavigationBar(
-              backgroundColor: Colors.white,
-              selectedItemColor: const Color(0xFF202A44),
-              unselectedItemColor: Colors.grey[600],
+              backgroundColor: Theme.of(context).cardColor,
+              selectedItemColor: _getBrandColor(
+                context,
+              ), // Adaptive brand color
+              unselectedItemColor: Theme.of(context).unselectedWidgetColor,
               currentIndex: 0,
               onTap: (index) {
                 switch (index) {
@@ -340,7 +481,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                     if (userType == 'admin' || userType == 'editor') {
                       Navigator.pushNamed(context, '/home');
                     } else {
-                      Navigator.pushNamed(context, '/viewer-home');
+                      Navigator.pushNamed(context, '/public-home');
                     }
                     break;
                   case 2:
@@ -351,8 +492,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard),
-                  label: 'Dashboard',
+                  icon: Icon(Icons.favorite),
+                  label: 'Wishlist',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person),
@@ -425,16 +566,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         width: double.infinity,
         padding: EdgeInsets.all(24.w),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          boxShadow: _getCardShadows(context),
         ),
         child: Column(
           children: [
@@ -482,16 +616,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          boxShadow: _getCardShadows(context),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,7 +689,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                       style: TextStyle(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: _getTextColor(context),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -573,7 +700,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                         item.description.first,
                         style: TextStyle(
                           fontSize: 10.sp,
-                          color: Colors.grey[600],
+                          color: _getSecondaryTextColor(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -586,7 +713,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                           'Qty: ${item.qtyAvailable}',
                           style: TextStyle(
                             fontSize: 9.sp,
-                            color: Colors.grey[600],
+                            color: _getSecondaryTextColor(context),
                           ),
                         ),
                         Container(
@@ -630,7 +757,7 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
           ),
           child: Column(
@@ -723,16 +850,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         height: 50.h,
         padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: const Color(0xFF202A44),
+          color: _getBrandColor(context), // Adaptive brand color
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          boxShadow: _getButtonShadows(context),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

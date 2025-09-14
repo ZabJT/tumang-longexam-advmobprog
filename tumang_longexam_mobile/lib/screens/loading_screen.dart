@@ -60,27 +60,11 @@ class _LoadingScreenState extends State<LoadingScreen>
       // Start the loading screen sliding up
       _slideController.forward();
 
-      // Navigate immediately - no transition delay
-      try {
-        final userService = UserService();
-        final isLoggedIn = await userService.isLoggedIn();
-
-        if (isLoggedIn) {
-          final userData = await userService.getUserData();
-          final userType = userData['type']?.toLowerCase() ?? 'viewer';
-
-          if (userType == 'viewer') {
-            Navigator.pushReplacementNamed(context, '/viewer-home');
-          } else {
-            Navigator.pushReplacementNamed(context, '/home');
-          }
-        } else {
-          Navigator.pushReplacementNamed(context, '/public-home');
-        }
-      } catch (e) {
-        // If there's an error, navigate to public home
-        Navigator.pushReplacementNamed(context, '/public-home');
-      }
+      // Always start as unauthenticated - navigate to public home
+      print(
+        'Loading Screen - Starting as unauthenticated, redirecting to /public-home',
+      );
+      Navigator.pushReplacementNamed(context, '/public-home');
     }
   }
 
@@ -91,12 +75,20 @@ class _LoadingScreenState extends State<LoadingScreen>
     super.dispose();
   }
 
+  // Get adaptive brand color based on theme
+  Color _getBrandColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? const Color(0xFF4A5A7A)
+        : const Color(0xFF202A44); // Lighter blue for dark mode
+  }
+
   @override
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slideAnimation,
       child: Scaffold(
-        backgroundColor: const Color(0xFF202A44), // Dark Blue
+        backgroundColor: _getBrandColor(context), // Adaptive brand color
         body: Center(
           child: AnimatedBuilder(
             animation: _animationController,
@@ -129,7 +121,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                             child: const Icon(
                               Icons.store,
                               size: 120,
-                              color: Color(0xFF2196F3),
+                              color: Colors.white,
                             ),
                           );
                         },

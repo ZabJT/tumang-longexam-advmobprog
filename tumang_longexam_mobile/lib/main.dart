@@ -12,7 +12,6 @@ import 'screens/signup_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/admin_approval_screen.dart';
 import 'screens/loading_screen.dart';
-import 'screens/viewer_home_screen.dart';
 import 'screens/public_home_screen.dart';
 import 'constants.dart';
 
@@ -60,7 +59,6 @@ class MainApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/signup': (context) => const SignUpScreen(),
               '/home': (context) => const HomeScreen(),
-              '/viewer-home': (context) => const ViewerHomeScreen(),
               '/settings': (context) => const SettingsScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/admin-approval': (context) => const AdminApprovalScreen(),

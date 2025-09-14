@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
                     if (context.mounted) {
                       Navigator.pushNamedAndRemoveUntil(
                         context,
-                        '/login',
+                        '/public-home',
                         (route) => false,
                       );
                     }

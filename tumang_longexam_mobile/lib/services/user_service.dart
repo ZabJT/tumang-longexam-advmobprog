@@ -50,7 +50,8 @@ class UserService {
 
   Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token') != null;
+    final token = prefs.getString('token');
+    return token != null && token.isNotEmpty;
   }
 
   Future<void> logout() async {
