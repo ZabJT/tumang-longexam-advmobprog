@@ -263,14 +263,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
         ),
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          if (_wishlistItems.isNotEmpty)
-            IconButton(
-              onPressed: _loadWishlist,
-              icon: Icon(Icons.refresh, size: 24.sp),
-              tooltip: 'Refresh',
-            ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
