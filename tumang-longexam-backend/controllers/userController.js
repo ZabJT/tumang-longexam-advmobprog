@@ -124,10 +124,30 @@ const updateUser = async (req, res) => {
 
 const getPendingUsers = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const pendingUsers = await User.find({
       approvalStatus: "pending",
-    }).select("-password");
-    res.json({ users: pendingUsers });
+    })
+      .select("-password")
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const total = await User.countDocuments({
+      approvalStatus: "pending",
+    });
+
+    res.json({
+      users: pendingUsers,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      hasNextPage: page < Math.ceil(total / limit),
+      hasPrevPage: page > 1,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

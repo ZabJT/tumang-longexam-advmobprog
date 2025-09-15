@@ -25,10 +25,12 @@ class UserService {
     if (response.statusCode == 200) {
       data = jsonDecode(response.body);
       return data;
+    } else if (response.statusCode == 401 || response.statusCode == 404) {
+      // For security, always show the same message for invalid credentials
+      // Whether email doesn't exist (404) or password is wrong (401)
+      throw Exception('Invalid email or password');
     } else {
-      throw Exception(
-        'Failed to load data: ${response.statusCode} - ${response.body}',
-      );
+      throw Exception('Login failed. Please try again');
     }
   }
 
@@ -59,9 +61,12 @@ class UserService {
     await prefs.clear();
   }
 
-  Future<List<Map<String, dynamic>>> getPendingUsers() async {
+  Future<Map<String, dynamic>> getPendingUsers({
+    int page = 1,
+    int limit = 10,
+  }) async {
     final response = await http.get(
-      Uri.parse('$host/api/users/pending'),
+      Uri.parse('$host/api/users/pending?page=$page&limit=$limit'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -69,8 +74,14 @@ class UserService {
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return List<Map<String, dynamic>>.from(data['users'] ?? []);
+      final responseData = jsonDecode(response.body);
+      return {
+        'success': true,
+        'users': responseData['users'] ?? [],
+        'total': responseData['total'] ?? 0,
+        'page': responseData['page'] ?? page,
+        'totalPages': responseData['totalPages'] ?? 1,
+      };
     } else {
       throw Exception('Failed to load pending users: ${response.statusCode}');
     }
@@ -151,10 +162,18 @@ class UserService {
     if (response.statusCode == 200 || response.statusCode == 201) {
       data = jsonDecode(response.body);
       return data;
+    } else if (response.statusCode == 400) {
+      final body = jsonDecode(response.body);
+      if (body['message']?.toString().toLowerCase().contains('email') == true) {
+        throw Exception('Email already registered');
+      }
+      if (body['message']?.toString().toLowerCase().contains('username') ==
+          true) {
+        throw Exception('Username already taken');
+      }
+      throw Exception('Invalid information. Please check your details');
     } else {
-      throw Exception(
-        'Failed to register user: ${response.statusCode} ${response.body}',
-      );
+      throw Exception('Registration failed. Please try again');
     }
   }
 }

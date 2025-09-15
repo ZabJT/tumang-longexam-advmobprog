@@ -13,6 +13,8 @@ import 'screens/profile_screen.dart';
 import 'screens/admin_approval_screen.dart';
 import 'screens/loading_screen.dart';
 import 'screens/public_home_screen.dart';
+import 'screens/wishlist_screen.dart';
+import 'screens/inquiry_screen.dart';
 import 'constants.dart';
 
 void main() async {
@@ -62,6 +64,8 @@ class MainApp extends StatelessWidget {
               '/settings': (context) => const SettingsScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/admin-approval': (context) => const AdminApprovalScreen(),
+              '/wishlist': (context) => const WishlistScreen(),
+              '/inquiries': (context) => const InquiryScreen(),
             },
           );
         },
@@ -75,17 +79,22 @@ ThemeData _buildLightTheme() {
   const primaryColorDark = Color(0xFF1A2238);
   const primaryColorLight = Color(0xFF2A3A54);
   const backgroundColor = Color(0xFFF0F8FF); // Alice Blue
+  const surfaceColor = Colors.white;
+  const cardColor = Colors.white;
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: Brightness.light,
+      surface: surfaceColor,
+      surfaceContainerHighest: cardColor,
     ),
     primaryColor: primaryColor,
     primaryColorDark: primaryColorDark,
     primaryColorLight: primaryColorLight,
     scaffoldBackgroundColor: backgroundColor,
+    cardColor: cardColor,
     appBarTheme: const AppBarTheme(
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,
@@ -108,25 +117,56 @@ ThemeData _buildLightTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
     ),
+    cardTheme: CardThemeData(
+      color: cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: surfaceColor,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[300]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor),
+      ),
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: cardColor,
+      selectedItemColor: primaryColor,
+      unselectedItemColor: Colors.grey[600],
+    ),
   );
 }
 
 ThemeData _buildDarkTheme() {
-  const primaryColor = Color(0xFF202A44); // Dark Blue (same as loading screen)
-  const primaryColorDark = Color(0xFF1A2238);
-  const primaryColorLight = Color(0xFF2A3A54);
-  const backgroundColor = Color(0xFF1A1A1A); // Dark background
+  const primaryColor = Color(0xFF4A5A7A); // Lighter blue for dark mode
+  const primaryColorDark = Color(0xFF3A4A6A);
+  const primaryColorLight = Color(0xFF5A6A8A);
+  const backgroundColor = Color(0xFF121212); // Dark background
+  const surfaceColor = Color(0xFF1E1E1E); // Dark surface
+  const cardColor = Color(0xFF2D2D2D); // Dark card
 
   return ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
       seedColor: primaryColor,
       brightness: Brightness.dark,
+      surface: surfaceColor,
+      surfaceContainerHighest: cardColor,
     ),
     primaryColor: primaryColor,
     primaryColorDark: primaryColorDark,
     primaryColorLight: primaryColorLight,
     scaffoldBackgroundColor: backgroundColor,
+    cardColor: cardColor,
     appBarTheme: const AppBarTheme(
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,
@@ -148,6 +188,32 @@ ThemeData _buildDarkTheme() {
       contentTextStyle: const TextStyle(color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       behavior: SnackBarBehavior.floating,
+    ),
+    cardTheme: CardThemeData(
+      color: cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: surfaceColor,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[600]!),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey[600]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor),
+      ),
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: cardColor,
+      selectedItemColor: primaryColor,
+      unselectedItemColor: Colors.grey[400],
     ),
   );
 }

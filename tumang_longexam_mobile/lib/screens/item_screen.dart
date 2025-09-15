@@ -8,6 +8,8 @@ import '../services/item_service.dart';
 import '../services/user_service.dart';
 import '../widgets/custom_text.dart';
 import '../widgets/modern_loading.dart';
+import '../widgets/auth_pagination_widget.dart';
+import '../utils/error_handler.dart';
 import 'detail_screen.dart';
 
 class ItemScreen extends StatefulWidget {
@@ -22,6 +24,16 @@ class _ItemScreenState extends State<ItemScreen> {
   final List<Item> _items = [];
   late Future<void> _loadFuture;
   String _userType = 'viewer'; // Default to viewer for safety
+
+  // Pagination state
+  int _currentPage = 1;
+  int _totalPages = 1;
+  bool _isLoadingPage = false;
+
+  // Search state
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchTimer;
 
   @override
   void initState() {
@@ -45,17 +57,73 @@ class _ItemScreenState extends State<ItemScreen> {
     }
   }
 
-  Future<void> _loadItems() async {
-    final res = await _svc.getAllItem();
-    final list = (res['items'] ?? res) as dynamic;
-    final List data = list is List ? list : (list['data'] ?? []);
-    _items
-      ..clear()
-      ..addAll(
-        data
-            .map((e) => Item.fromJson(e))
-            .where((item) => item.isActive.toLowerCase() == 'true'),
+  Future<void> _loadItems({int page = 1}) async {
+    try {
+      setState(() {
+        if (page == 1) {
+          // Initial load
+        } else {
+          _isLoadingPage = true;
+        }
+      });
+
+      final res = await _svc.getAllItem(
+        page: page,
+        limit: 10,
+        activeOnly: true,
+        search: _searchQuery,
       );
+      final list = (res['items'] ?? res) as dynamic;
+      final List data = list is List ? list : (list['data'] ?? []);
+
+      // Calculate total pages from response
+      final totalItems = res['total'] ?? data.length;
+      final totalPages = (totalItems / 10).ceil();
+
+      _items
+        ..clear()
+        ..addAll(
+          data
+              .map((e) => Item.fromJson(e))
+              .toList(), // Show all items for admin/editor management
+        );
+
+      setState(() {
+        _currentPage = page;
+        _totalPages = totalPages;
+        _isLoadingPage = false;
+      });
+    } catch (e) {
+      print('Error loading items: $e');
+      setState(() {
+        _isLoadingPage = false;
+      });
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to load items: ${ErrorHandler.getUserFriendlyMessage(e)}',
+            ),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    }
+  }
+
+  void _onPageChanged(int page) {
+    _loadItems(page: page);
+  }
+
+  void _performSearch() {
+    // Cancel previous timer
+    _searchTimer?.cancel();
+
+    // Set a new timer for debounced search
+    _searchTimer = Timer(const Duration(milliseconds: 500), () {
+      _loadItems(page: 1); // Reset to page 1 when searching
+    });
   }
 
   //---- Add Item Dialog ----
@@ -437,7 +505,10 @@ class _ItemScreenState extends State<ItemScreen> {
               } catch (e) {
                 setLocal(() => isSaving = false);
                 if (mounted) {
-                  ModernSnackBar.error(context, 'Failed to add: $e');
+                  ModernSnackBar.error(
+                    context,
+                    ErrorHandler.getUserFriendlyMessage(e),
+                  );
                 }
               }
             }
@@ -777,128 +848,225 @@ class _ItemScreenState extends State<ItemScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
       floatingActionButton: _canAddItems
           ? FloatingActionButton(
               onPressed: _openAddItemDialog,
               child: const Icon(Icons.add),
             )
           : null,
-      body: FutureBuilder<void>(
-        future: _loadFuture,
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const ModernLoading(message: 'Loading items...');
-          }
-          if (snap.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: CustomText(text: 'Failed to load items'),
-              ),
-            );
-          }
-          if (_items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: EdgeInsets.all(36.w),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 64.sp,
-                      color: Colors.grey[400],
-                    ),
-                    SizedBox(height: 16.h),
-                    CustomText(
-                      text: 'No items available',
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    SizedBox(height: 8.h),
-                    Text(
-                      _userType == 'viewer'
-                          ? 'Browse our catalog when items are added'
-                          : 'Add your first item to get started',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: Colors.grey[600],
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                  ],
+      body: Column(
+        children: [
+          // Search Bar - Always visible
+          Container(
+            margin: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12.r),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).shadowColor.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              textAlign: TextAlign.left,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+                // Trigger search with debounce
+                _performSearch();
+              },
+              decoration: InputDecoration(
+                hintText: 'Search items by name or description...',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16.w,
+                  vertical: 12.h,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: Theme.of(context).primaryColor,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                          _performSearch();
+                        },
+                      )
+                    : null,
               ),
-            );
-          }
-          return ListView.builder(
-            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 20.w),
-            itemCount: _items.length,
-            itemBuilder: (_, index) {
-              final item = _items[index];
-              final subtitle = item.description.isNotEmpty
-                  ? item.description.first
-                  : '-';
-              return Card(
-                child: InkWell(
-                  onTap: () async {
-                    // TODO: navigate to detail if needed
-                    debugPrint('Open item ${item.iid}');
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => DetailScreen(item: item),
-                      ),
-                    );
-                    if (result is Map && result['deleted'] == true) {
-                      final id = result['id'] as String;
-                      setState(() {
-                        _items.removeWhere((e) => e.iid == id);
-                      });
-                    }
-                    if (result is Item) {
-                      // If the item became inactive, remove it from the list
-                      if (result.isActive.toLowerCase() == 'false') {
-                        setState(() {
-                          _items.removeWhere((e) => e.iid == result.iid);
-                        });
-                      } else {
-                        // If the item is still active, update it in the list
-                        setState(() {
-                          final l = _items.indexWhere(
-                            (e) => e.iid == result.iid,
-                          );
-                          if (l != -1) _items[l] = result;
-                        });
-                      }
-                    }
-                  },
-                  child: _userType == 'viewer'
-                      ? _buildBuyerItemCard(item, subtitle)
-                      : ListTile(
-                          leading: _leadingThumb(item),
-                          title: CustomText(
-                            text: item.name.isEmpty ? 'Untitled' : item.name,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            maxLines: 2,
+            ),
+          ),
+          // Content Area
+          Expanded(
+            child: FutureBuilder<void>(
+              future: _loadFuture,
+              builder: (_, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const ModernLoading(message: 'Loading items...');
+                }
+                if (snap.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: CustomText(text: 'Failed to load items'),
+                    ),
+                  );
+                }
+                if (_items.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(36.w),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 64.sp,
+                            color: Colors.grey[400],
                           ),
-                          subtitle: CustomText(text: subtitle, maxLines: 2),
-                          trailing: SizedBox(
-                            height: double.infinity,
-                            child: GestureDetector(
-                              onTap: () => debugPrint('More ${item.iid}'),
-                              child: const Icon(Icons.keyboard_arrow_right),
+                          SizedBox(height: 16.h),
+                          CustomText(
+                            text: _searchQuery.isNotEmpty
+                                ? 'No items found for "${_searchQuery}"'
+                                : 'No items available',
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'Try adjusting your search terms'
+                                : (_userType == 'viewer'
+                                      ? 'Browse our catalog when items are added'
+                                      : 'Add your first item to get started'),
+                            style: TextStyle(
+                              fontSize: 14.sp,
+                              color: Colors.grey[600],
+                              fontFamily: 'Poppins',
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: EdgeInsets.symmetric(
+                          vertical: 10.h,
+                          horizontal: 20.w,
                         ),
-                ),
-              );
-            },
-          );
-        },
+                        itemCount: _items.length,
+                        itemBuilder: (_, index) {
+                          final item = _items[index];
+                          final subtitle = item.description.isNotEmpty
+                              ? item.description.first
+                              : '-';
+                          return Card(
+                            child: InkWell(
+                              onTap: () async {
+                                // TODO: navigate to detail if needed
+                                debugPrint('Open item ${item.iid}');
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DetailScreen(item: item),
+                                  ),
+                                );
+                                if (result is Map &&
+                                    result['deleted'] == true) {
+                                  final id = result['id'] as String;
+                                  setState(() {
+                                    _items.removeWhere((e) => e.iid == id);
+                                  });
+                                }
+                                if (result is Item) {
+                                  // If the item became inactive, remove it from the list
+                                  if (result.isActive.toLowerCase() ==
+                                      'false') {
+                                    setState(() {
+                                      _items.removeWhere(
+                                        (e) => e.iid == result.iid,
+                                      );
+                                    });
+                                  } else {
+                                    // If the item is still active, update it in the list
+                                    setState(() {
+                                      final l = _items.indexWhere(
+                                        (e) => e.iid == result.iid,
+                                      );
+                                      if (l != -1) _items[l] = result;
+                                    });
+                                  }
+                                }
+                              },
+                              child: _userType == 'viewer'
+                                  ? _buildBuyerItemCard(item, subtitle)
+                                  : ListTile(
+                                      leading: _leadingThumb(item),
+                                      title: CustomText(
+                                        text: item.name.isEmpty
+                                            ? 'Untitled'
+                                            : item.name,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        maxLines: 2,
+                                      ),
+                                      subtitle: CustomText(
+                                        text: subtitle,
+                                        maxLines: 2,
+                                      ),
+                                      trailing: SizedBox(
+                                        height: double.infinity,
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              debugPrint('More ${item.iid}'),
+                                          child: const Icon(
+                                            Icons.keyboard_arrow_right,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Pagination
+                    if (_totalPages > 1)
+                      AuthPaginationWidget(
+                        currentPage: _currentPage,
+                        totalPages: _totalPages,
+                        onPageChanged: _onPageChanged,
+                        isLoading: _isLoadingPage,
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchTimer?.cancel();
+    super.dispose();
   }
 }

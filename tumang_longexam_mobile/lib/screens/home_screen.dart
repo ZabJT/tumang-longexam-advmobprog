@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'item_screen.dart';
 import 'archive_screen.dart';
+import 'wishlist_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/custom_text.dart';
 import '../services/user_service.dart';
@@ -54,13 +55,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> pages = [
       const ItemScreen(),
       if (!_isViewer) const ArchiveScreen(), // Hide archive for viewers
+      if (_isViewer) const WishlistScreen(), // Only show wishlist for viewers
       const ProfileScreen(),
     ];
 
     // Define tab labels based on user type
     final List<String> tabLabels = [
-      'Items',
+      _isViewer ? 'Items' : 'List of Items', // Change title for admin/editor
       if (!_isViewer) 'Archive', // Hide archive for viewers
+      if (_isViewer) 'Wishlist', // Only show wishlist for viewers
       'Profile',
     ];
 
@@ -85,6 +88,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, '/admin-approval'),
                 tooltip: 'Pending Approvals',
               ),
+            // Show inquiry icon for all authenticated users (admin, editor, viewer)
+            IconButton(
+              icon: Icon(Icons.help_outline, size: 24.sp),
+              onPressed: () => Navigator.pushNamed(context, '/inquiries'),
+              tooltip: 'My Inquiries',
+            ),
             IconButton(
               icon: Icon(Icons.settings, size: 24.sp),
               onPressed: () => Navigator.pushNamed(context, '/settings'),
@@ -101,14 +110,19 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
         bottomNavigationBar: BottomNavigationBar(
-          showSelectedLabels: false, //selected item
-          showUnselectedLabels: false, //unselected item
+          showSelectedLabels: true, //selected item
+          showUnselectedLabels: true, //unselected item
+          type: BottomNavigationBarType.fixed,
           onTap: _onTappedBar,
           items: _isViewer
               ? const [
                   BottomNavigationBarItem(
                     icon: Icon(Icons.category),
-                    label: 'Home',
+                    label: 'Items',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.favorite),
+                    label: 'Wishlist',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.person),
@@ -117,8 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ]
               : const [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.category),
-                    label: 'Home',
+                    icon: Icon(Icons.list_alt),
+                    label: 'List of Items',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.archive),

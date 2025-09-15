@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../services/user_service.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({Key? key}) : super(key: key);
@@ -111,20 +110,38 @@ class _LoadingScreenState extends State<LoadingScreen>
                             width: 300.w,
                             height: 300.h,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: Colors.grey.shade300,
+                                color: Theme.of(context).dividerColor,
                                 width: 2,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.store,
                               size: 120,
-                              color: Colors.white,
+                              color: Theme.of(context).primaryColor,
                             ),
                           );
                         },
+                      ),
+
+                      // Subtle tagline text - overlapping the image
+                      Transform.translate(
+                        offset: Offset(
+                          0,
+                          -80.h,
+                        ), // Move text up to be only 10px from the image
+                        child: Text(
+                          'Legends Don\'t Come Stock, Drive Now with Z-Customs',
+                          style: TextStyle(
+                            fontSize: 14.sp,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w300,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                   ),

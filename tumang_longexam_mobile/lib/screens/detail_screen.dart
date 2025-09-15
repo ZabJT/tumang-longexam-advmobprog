@@ -2,10 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/item_model.dart';
+import '../models/inquiry_model.dart';
 import '../services/item_service.dart';
 import '../services/user_service.dart';
 import '../widgets/modern_loading.dart';
+import '../utils/error_handler.dart';
 
 class DetailScreen extends StatefulWidget {
   const DetailScreen({
@@ -35,6 +38,7 @@ class _DetailScreenState extends State<DetailScreen> {
   late Item _item;
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
+  bool _isWishlisted = false;
 
   bool get _isItemInactive => _item.isActive.toLowerCase() == 'false';
   bool get _canEdit =>
@@ -54,12 +58,16 @@ class _DetailScreenState extends State<DetailScreen> {
     _qtyTotalCtrl = TextEditingController(text: _item.qtyTotal);
     _qtyAvailableCtrl = TextEditingController(text: _item.qtyAvailable);
     _isActive = _item.isActive.toLowerCase() == 'true';
+    _isWishlisted = _item.isWishlisted;
 
     if (!widget.isPublicView) {
       _loadUserType();
     } else {
       _userType = 'public'; // Set as public for public view
     }
+
+    // Check wishlist status from local storage
+    _checkWishlistStatus();
     super.initState();
   }
 
@@ -75,6 +83,18 @@ class _DetailScreenState extends State<DetailScreen> {
       setState(() {
         _userType = 'viewer';
       });
+    }
+  }
+
+  Future<void> _checkWishlistStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final wishlist = prefs.getStringList('wishlist') ?? [];
+      setState(() {
+        _isWishlisted = wishlist.contains(_item.iid);
+      });
+    } catch (e) {
+      print('Error checking wishlist status: $e');
     }
   }
 
@@ -347,7 +367,7 @@ class _DetailScreenState extends State<DetailScreen> {
       ModernSnackBar.success(context, 'Item updated successfully!');
       if (mounted) Navigator.of(context).pop(_item);
     } catch (e) {
-      ModernSnackBar.error(context, 'Failed to update: $e');
+      ModernSnackBar.error(context, ErrorHandler.getUserFriendlyMessage(e));
     }
     if (mounted) setState(() => _isSaving = false);
   }
@@ -394,7 +414,7 @@ class _DetailScreenState extends State<DetailScreen> {
     } catch (e) {
       // Revert the toggle if the update failed
       setState(() => _isActive = !newValue);
-      ModernSnackBar.error(context, 'Failed to update status: $e');
+      ModernSnackBar.error(context, ErrorHandler.getUserFriendlyMessage(e));
     }
 
     if (mounted) setState(() => _isSaving = false);
@@ -455,7 +475,7 @@ class _DetailScreenState extends State<DetailScreen> {
       Navigator.of(context).pop({'deleted': true, 'id': _item.iid});
     } catch (e) {
       if (!mounted) return;
-      ModernSnackBar.error(context, 'Failed to delete: $e');
+      ModernSnackBar.error(context, ErrorHandler.getUserFriendlyMessage(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -542,7 +562,12 @@ class _DetailScreenState extends State<DetailScreen> {
           SizedBox(height: 8.h),
           Text(
             _canEdit ? 'Tap to add image' : 'No image',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12.sp),
+            style: TextStyle(
+              color:
+                  Theme.of(context).textTheme.bodySmall?.color ??
+                  Colors.grey[600],
+              fontSize: 12.sp,
+            ),
           ),
         ],
       ),
@@ -635,14 +660,33 @@ class _DetailScreenState extends State<DetailScreen> {
               ),
               SizedBox(height: 24.h),
 
-              // Product Name
-              Text(
-                _item.name.isEmpty ? 'Untitled Product' : _item.name,
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+              // Product Name with Wishlist Heart
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _item.name.isEmpty ? 'Untitled Product' : _item.name,
+                      style: TextStyle(
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            Theme.of(context).textTheme.headlineSmall?.color ??
+                            Colors.black87,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _toggleWishlist,
+                    icon: Icon(
+                      _isWishlisted ? Icons.favorite : Icons.favorite_border,
+                      color: _isWishlisted ? Colors.red : Colors.grey,
+                      size: 28.sp,
+                    ),
+                    tooltip: _isWishlisted
+                        ? 'Remove from wishlist'
+                        : 'Add to wishlist',
+                  ),
+                ],
               ),
               SizedBox(height: 16.h),
 
@@ -656,7 +700,9 @@ class _DetailScreenState extends State<DetailScreen> {
                       style: TextStyle(
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color:
+                            Theme.of(context).textTheme.titleLarge?.color ??
+                            Colors.black87,
                       ),
                     ),
                     SizedBox(height: 8.h),
@@ -667,7 +713,9 @@ class _DetailScreenState extends State<DetailScreen> {
                           desc,
                           style: TextStyle(
                             fontSize: 14.sp,
-                            color: Colors.grey[700],
+                            color:
+                                Theme.of(context).textTheme.bodyMedium?.color ??
+                                Colors.grey[700],
                             height: 1.4,
                           ),
                         ),
@@ -694,42 +742,28 @@ class _DetailScreenState extends State<DetailScreen> {
                       style: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w500,
-                        color: Colors.blue[800],
+                        color: Colors
+                            .blue[800], // Keep black/dark blue for light blue background
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 32.h),
+              SizedBox(height: 24.h),
 
-              // Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _makeInquiry,
-                      icon: const Icon(Icons.contact_support_outlined),
-                      label: const Text('Make Inquiry'),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
-                        side: BorderSide(color: Theme.of(context).primaryColor),
-                      ),
-                    ),
+              // Inquiry Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _makeInquiry,
+                  icon: const Icon(Icons.help_outline),
+                  label: const Text('Make Inquiry'),
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
                   ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _bookTestDrive,
-                      icon: const Icon(Icons.directions_car),
-                      label: const Text('Book Test Drive'),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
               SizedBox(height: 16.h),
             ],
@@ -746,47 +780,101 @@ class _DetailScreenState extends State<DetailScreen> {
       return;
     }
 
-    // TODO: Implement inquiry functionality
+    _showInquiryDialog();
+  }
+
+  void _showInquiryDialog() {
+    final messageController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Make Inquiry'),
-        content: const Text(
-          'Inquiry functionality will be implemented soon! You can contact us directly for more information about this vehicle.',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.help_outline, color: Theme.of(context).primaryColor),
+            SizedBox(width: 8.w),
+            const Text('Make Inquiry'),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+            maxWidth: MediaQuery.of(context).size.width * 0.8,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Item: ${_item.name}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color:
+                        Theme.of(context).textTheme.bodyMedium?.color ??
+                        Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                TextField(
+                  controller: messageController,
+                  maxLines: 3,
+                  minLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Your inquiry message',
+                    hintText:
+                        'Ask about pricing, availability, specifications, etc.',
+                    border: const OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _submitInquiry(messageController.text.trim()),
+            child: const Text('Send Inquiry'),
           ),
         ],
       ),
     );
   }
 
-  void _bookTestDrive() {
-    // Check if user is logged in
-    if (widget.isPublicView) {
-      _showLoginRequiredDialog('book test drives');
+  Future<void> _submitInquiry(String message) async {
+    if (message.isEmpty) {
+      ModernSnackBar.error(context, 'Please enter your inquiry message');
       return;
     }
 
-    // TODO: Implement test drive booking functionality
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Book Test Drive'),
-        content: const Text(
-          'Test drive booking functionality will be implemented soon! Contact us to schedule a test drive for this vehicle.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    try {
+      // Get user data for the inquiry
+      final userService = UserService();
+      final userData = await userService.getUserData();
+
+      final inquiry = Inquiry(
+        itemId: _item.iid,
+        itemName: _item.name,
+        itemPhotoUrl: _item.photoUrl,
+        userId: userData['_id'] ?? '',
+        userName: '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}'
+            .trim(),
+        message: message,
+        createdAt: DateTime.now(),
+      );
+
+      await _itemService.createInquiry(inquiry);
+      Navigator.pop(context); // Close dialog
+      ModernSnackBar.success(context, 'Inquiry sent successfully!');
+    } catch (e) {
+      ModernSnackBar.error(context, ErrorHandler.getUserFriendlyMessage(e));
+    }
   }
 
   void _showLoginRequiredDialog(String action) {
@@ -810,6 +898,28 @@ class _DetailScreenState extends State<DetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _toggleWishlist() async {
+    // Check if user is logged in
+    if (widget.isPublicView) {
+      _showLoginRequiredDialog('add items to wishlist');
+      return;
+    }
+
+    try {
+      if (_isWishlisted) {
+        await _itemService.removeFromWishlist(_item.iid);
+        ModernSnackBar.success(context, 'Removed from wishlist');
+      } else {
+        await _itemService.addToWishlist(_item.iid);
+        ModernSnackBar.success(context, 'Added to wishlist');
+      }
+      // Refresh wishlist status
+      await _checkWishlistStatus();
+    } catch (e) {
+      ModernSnackBar.error(context, ErrorHandler.getUserFriendlyMessage(e));
+    }
   }
 
   @override
@@ -981,7 +1091,11 @@ class _DetailScreenState extends State<DetailScreen> {
                           child: Text(
                             'As a viewer, you can browse items but cannot edit them. Contact an admin or editor to make changes.',
                             style: TextStyle(
-                              color: Colors.blue[800],
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.color ??
+                                  Colors.blue[800],
                               fontSize: 12.sp,
                             ),
                           ),

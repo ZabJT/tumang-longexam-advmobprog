@@ -1,11 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:provider/provider.dart';
 import '../services/user_service.dart';
 import '../widgets/custom_text.dart';
+import '../widgets/public_pagination_widget.dart';
 import '../models/item_model.dart';
 import '../services/item_service.dart';
-import '../providers/theme_provider.dart';
 import 'detail_screen.dart';
 
 class PublicHomeScreen extends StatefulWidget {
@@ -24,7 +24,11 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   bool _isLoggedIn = false;
   Map<String, dynamic> _userData = {};
   final TextEditingController _searchController = TextEditingController();
-  int _selectedBottomNavIndex = 0;
+
+  // Pagination state
+  int _currentPage = 1;
+  int _totalPages = 1;
+  bool _isLoadingPage = false;
 
   // Get adaptive brand color based on theme
   Color _getBrandColor(BuildContext context) {
@@ -85,20 +89,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
           ];
   }
 
-  List<BoxShadow> _getButtonShadows(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark
-        ? []
-        : [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -108,33 +98,87 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({int page = 1}) async {
     try {
-      // Load featured items (active items only)
-      final res = await _itemService.getAllItem();
+      setState(() {
+        if (page == 1) {
+          _isLoading = true;
+        } else {
+          _isLoadingPage = true;
+        }
+      });
+
+      // Load featured items with pagination (active items only)
+      final res = await _itemService.getAllItem(
+        page: page,
+        limit: 10,
+        activeOnly: true,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        search: _searchQuery,
+      );
       final list = (res['items'] ?? res) as dynamic;
       final List data = list is List ? list : (list['data'] ?? []);
+
+      // Debug: Print first few items to check sorting
+      print('Public Home Debug - Received ${data.length} items');
+      if (data.isNotEmpty) {
+        print(
+          'First item: ${data[0]['name']} - createdAt: ${data[0]['createdAt']}',
+        );
+        if (data.length > 1) {
+          print(
+            'Second item: ${data[1]['name']} - createdAt: ${data[1]['createdAt']}',
+          );
+        }
+      }
+
+      // Calculate total pages from response
+      final totalItems = res['total'] ?? data.length;
+      final totalPages = (totalItems / 10).ceil();
 
       setState(() {
         _featuredItems = data
             .map((e) => Item.fromJson(e))
-            .where((item) => item.isActive.toLowerCase() == 'true')
-            .take(6) // Show only 6 featured items
-            .toList();
+            .toList(); // No need to filter since backend already returns only active items
+        _currentPage = page;
+        _totalPages = totalPages;
         _isLoading = false;
+        _isLoadingPage = false;
       });
 
-      // Always start as unauthenticated - authentication will be checked only when user logs in
-      setState(() {
-        _isLoggedIn = false;
-        _userData = {};
-      });
+      // Only reset authentication state if this is the initial load (page 1)
+      // Don't reset authentication state during pagination
+      if (page == 1) {
+        // Check authentication state on initial load
+        await _checkAuthenticationState();
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _isLoadingPage = false;
+      });
     }
+  }
+
+  void _onPageChanged(int page) {
+    _loadData(page: page);
+  }
+
+  Timer? _searchTimer;
+
+  void _performSearch() {
+    // Cancel previous timer
+    _searchTimer?.cancel();
+
+    // Set a new timer for debounced search
+    _searchTimer = Timer(const Duration(milliseconds: 500), () {
+      _loadData(page: 1); // Reset to page 1 when searching
+    });
   }
 
   void _navigateToLogin() async {
@@ -151,8 +195,13 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
       final isLoggedIn =
           userData['token'] != null && userData['token'].isNotEmpty;
 
-      print('Public Home Screen - After Login - User Data: $userData');
-      print('Public Home Screen - After Login - Is Logged In: $isLoggedIn');
+      print('Public Home Screen - Authentication Check - User Data: $userData');
+      print(
+        'Public Home Screen - Authentication Check - Is Logged In: $isLoggedIn',
+      );
+      print(
+        'Public Home Screen - Authentication Check - User Type: ${userData['type']}',
+      );
 
       setState(() {
         _isLoggedIn = isLoggedIn;
@@ -167,28 +216,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
     }
   }
 
-  void _onBottomNavTapped(int index) {
-    setState(() {
-      _selectedBottomNavIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        // Home - already on home page
-        break;
-      case 1:
-        // Wishlist
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Wishlist coming soon!')));
-        break;
-      case 2:
-        // Profile
-        Navigator.pushNamed(context, '/profile');
-        break;
-    }
-  }
-
   void _navigateToDetail(Item item) {
     Navigator.push(
       context,
@@ -197,59 +224,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
           item: item,
           isPublicView: !_isLoggedIn, // Use public view only if not logged in
         ),
-      ),
-    );
-  }
-
-  void _showLoginRequiredDialog(String action) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Login Required'),
-        content: Text('Please login to $action'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _navigateToLogin();
-            },
-            child: const Text('Login'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _userService.logout();
-              setState(() {
-                _isLoggedIn = false;
-                _userData = {};
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Logged out successfully')),
-              );
-            },
-            child: const Text('Logout'),
-          ),
-        ],
       ),
     );
   }
@@ -275,6 +249,12 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
               child: const Text('Login', style: TextStyle(color: Colors.white)),
             ),
           ] else ...[
+            // Show inquiry icon for authenticated users
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => Navigator.pushNamed(context, '/inquiries'),
+              tooltip: 'My Inquiries',
+            ),
             IconButton(
               icon: const Icon(Icons.settings),
               onPressed: () {
@@ -334,7 +314,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: _getCardShadows(context),
                       ),
                       child: TextField(
                         controller: _searchController,
@@ -343,6 +322,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                           setState(() {
                             _searchQuery = value.toLowerCase();
                           });
+                          // Trigger search with debounce
+                          _performSearch();
                         },
                         decoration: InputDecoration(
                           hintText: 'Search cars by name, brand, or model...',
@@ -351,9 +332,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                             horizontal: 16.w,
                             vertical: 12.h,
                           ),
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.search,
-                            color: Color(0xFF202A44),
+                            color: Theme.of(context).primaryColor,
                           ),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
@@ -363,81 +344,12 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                                     setState(() {
                                       _searchQuery = '';
                                     });
+                                    _performSearch();
                                   },
                                 )
                               : null,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 24.h),
-
-              // Horizontal Scrollable Quick Actions
-              SizedBox(
-                height: 50.h,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    _buildHorizontalQuickAction(
-                      icon: Icons.directions_car,
-                      title: 'Browse Cars',
-                      onTap: () {
-                        _showAllCars();
-                      },
-                    ),
-                    SizedBox(width: 12.w),
-                    _buildHorizontalQuickAction(
-                      icon: Icons.favorite_outline,
-                      title: 'Wishlist',
-                      onTap: () {
-                        if (_isLoggedIn) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Wishlist functionality coming soon!',
-                              ),
-                            ),
-                          );
-                        } else {
-                          _showLoginRequiredDialog('save cars to wishlist');
-                        }
-                      },
-                    ),
-                    SizedBox(width: 12.w),
-                    _buildHorizontalQuickAction(
-                      icon: Icons.contact_support,
-                      title: 'Inquiry',
-                      onTap: () {
-                        if (_isLoggedIn) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Inquiry functionality coming soon!',
-                              ),
-                            ),
-                          );
-                        } else {
-                          _showLoginRequiredDialog('submit inquiries');
-                        }
-                      },
-                    ),
-                    SizedBox(width: 12.w),
-                    _buildHorizontalQuickAction(
-                      icon: Icons.schedule,
-                      title: 'Test Drive',
-                      onTap: () {
-                        if (_isLoggedIn) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Test drive booking coming soon!'),
-                            ),
-                          );
-                        } else {
-                          _showLoginRequiredDialog('book test drives');
-                        }
-                      },
                     ),
                   ],
                 ),
@@ -457,7 +369,19 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
               else if (_featuredItems.isEmpty)
                 _buildEmptyState()
               else
-                _buildFeaturedCars(),
+                Column(
+                  children: [
+                    _buildFeaturedCars(),
+                    SizedBox(height: 16.h),
+                    // Pagination
+                    PublicPaginationWidget(
+                      currentPage: _currentPage,
+                      totalPages: _totalPages,
+                      onPageChanged: _onPageChanged,
+                      isLoading: _isLoadingPage,
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -476,13 +400,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                     // Already on public home
                     break;
                   case 1:
-                    final userType =
-                        _userData['type']?.toLowerCase() ?? 'viewer';
-                    if (userType == 'admin' || userType == 'editor') {
-                      Navigator.pushNamed(context, '/home');
-                    } else {
-                      Navigator.pushNamed(context, '/public-home');
-                    }
+                    // Navigate to wishlist
+                    Navigator.pushNamed(context, '/wishlist');
                     break;
                   case 2:
                     Navigator.pushNamed(context, '/profile');
@@ -549,19 +468,8 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
   }
 
   Widget _buildFeaturedCars() {
-    List<Item> displayItems = _featuredItems;
-
-    // Filter by search query if provided
-    if (_searchQuery.isNotEmpty) {
-      displayItems = _featuredItems.where((item) {
-        return item.name.toLowerCase().contains(_searchQuery) ||
-            item.description.any(
-              (desc) => desc.toLowerCase().contains(_searchQuery),
-            );
-      }).toList();
-    }
-
-    if (displayItems.isEmpty) {
+    // No need for local filtering since search is now handled by the backend
+    if (_featuredItems.isEmpty) {
       return Container(
         width: double.infinity,
         padding: EdgeInsets.all(24.w),
@@ -602,9 +510,9 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
         crossAxisSpacing: 12.w,
         mainAxisSpacing: 12.h,
       ),
-      itemCount: displayItems.length,
+      itemCount: _featuredItems.length,
       itemBuilder: (context, index) {
-        final item = displayItems[index];
+        final item = _featuredItems[index];
         return _buildCarCard(item);
       },
     );
@@ -739,137 +647,6 @@ class _PublicHomeScreenState extends State<PublicHomeScreen> {
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAllCars() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: EdgeInsets.only(top: 12.h),
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(20.w),
-                child: Text(
-                  'All Cars',
-                  style: TextStyle(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
-                  itemCount: _featuredItems.length,
-                  itemBuilder: (context, index) {
-                    final item = _featuredItems[index];
-                    return Card(
-                      margin: EdgeInsets.only(bottom: 12.h),
-                      child: ListTile(
-                        leading: _buildCarThumbnail(item),
-                        title: Text(item.name),
-                        subtitle: item.description.isNotEmpty
-                            ? Text(item.description.first)
-                            : null,
-                        trailing: Text('Qty: ${item.qtyAvailable}'),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _navigateToDetail(item);
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCarThumbnail(Item item) {
-    return Container(
-      width: 50.w,
-      height: 50.h,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.grey[200],
-      ),
-      child: item.photoUrl.isNotEmpty
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                item.photoUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.directions_car_outlined);
-                },
-              ),
-            )
-          : const Icon(Icons.directions_car_outlined),
-    );
-  }
-
-  Widget _buildHorizontalQuickAction({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 150.w,
-        height: 50.h,
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: _getBrandColor(context), // Adaptive brand color
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: _getButtonShadows(context),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22.sp, color: Colors.white),
-            SizedBox(width: 10.w),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

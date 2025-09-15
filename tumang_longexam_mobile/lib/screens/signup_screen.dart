@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/user_service.dart';
+import '../utils/error_handler.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -14,7 +15,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _ageController = TextEditingController();
-  final _genderController = TextEditingController();
+  String _selectedGender = 'Male';
   final _contactController = TextEditingController();
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
@@ -28,7 +29,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _ageController.dispose();
-    _genderController.dispose();
     _contactController.dispose();
     _emailController.dispose();
     _usernameController.dispose();
@@ -70,7 +70,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'firstName': _firstNameController.text,
           'lastName': _lastNameController.text,
           'age': _ageController.text,
-          'gender': _genderController.text,
+          'gender': _selectedGender,
           'contactNumber': _contactController.text,
           'email': _emailController.text,
           'username': cleanUsername,
@@ -97,9 +97,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
         Navigator.pushReplacementNamed(context, '/public-home');
       } catch (e) {
         if (!mounted) return;
-        // Show error message
+        // Show user-friendly error message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+          SnackBar(
+            content: Text(ErrorHandler.getUserFriendlyMessage(e)),
+            backgroundColor: Colors.red[600],
+          ),
         );
       } finally {
         if (mounted) {
@@ -114,13 +117,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F8FF), // Alice Blue
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF202A44),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Sign Up'),
-      ),
+      appBar: AppBar(title: const Text('Sign Up')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(24.w),
@@ -202,8 +199,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     SizedBox(width: 12.w),
                     Expanded(
-                      child: TextFormField(
-                        controller: _genderController,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedGender,
                         decoration: const InputDecoration(
                           labelText: 'Gender',
                           prefixIcon: Icon(Icons.person_outline),
@@ -211,6 +208,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             borderRadius: BorderRadius.all(Radius.circular(12)),
                           ),
                         ),
+                        items: ['Male', 'Female', 'Others'].map((
+                          String gender,
+                        ) {
+                          return DropdownMenuItem<String>(
+                            value: gender,
+                            child: Text(gender),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedGender = newValue!;
+                          });
+                        },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Required';
@@ -270,7 +280,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: _usernameController,
                   decoration: const InputDecoration(
                     labelText: 'Username',
-                    hintText: 'Add .STAFF# or .ADMIN# for special access',
                     prefixIcon: Icon(Icons.account_circle_outlined),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -328,8 +337,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleSignUp,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF202A44),
-                    foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

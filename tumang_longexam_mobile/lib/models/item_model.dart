@@ -6,6 +6,7 @@ class Item {
   final String qtyTotal;
   final String qtyAvailable;
   final String isActive;
+  final bool isWishlisted;
 
   Item({
     this.iid = '',
@@ -15,6 +16,7 @@ class Item {
     required this.qtyTotal,
     required this.qtyAvailable,
     required this.isActive,
+    this.isWishlisted = false,
   });
 
   factory Item.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,7 @@ class Item {
       qtyTotal: json['qtyTotal']?.toString() ?? '',
       qtyAvailable: json['qtyAvailable']?.toString() ?? '',
       isActive: json['isActive']?.toString() ?? '',
+      isWishlisted: json['isWishlisted'] == true,
     );
   }
 
@@ -39,6 +42,7 @@ class Item {
     String? qtyTotal,
     String? qtyAvailable,
     String? isActive,
+    bool? isWishlisted,
   }) {
     return Item(
       iid: iid ?? this.iid,
@@ -48,6 +52,7 @@ class Item {
       qtyTotal: qtyTotal ?? this.qtyTotal,
       qtyAvailable: qtyAvailable ?? this.qtyAvailable,
       isActive: isActive ?? this.isActive,
+      isWishlisted: isWishlisted ?? this.isWishlisted,
     );
   }
 }

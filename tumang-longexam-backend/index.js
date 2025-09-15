@@ -7,6 +7,7 @@ const jsonParser = bodyParser.json();
 const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const itemRoutes = require("./routes/itemRoutes");
+const inquiryRoutes = require("./routes/inquiryRoutes");
 
 const app = express();
 connectDB();
@@ -43,6 +44,7 @@ app.use((req, res, next) => {
 
 app.use("/api/users", userRoutes);
 app.use("/api/items", itemRoutes);
+app.use("/api/inquiries", inquiryRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

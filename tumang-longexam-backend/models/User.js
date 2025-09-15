@@ -22,6 +22,12 @@ const userSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected"],
       default: "approved", // Default to approved for backward compatibility
     },
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Item",
+      },
+    ],
   },
   { timestamps: true }
 );
