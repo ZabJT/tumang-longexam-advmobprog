@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleMongoDBLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -39,9 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await _userService.saveUserData(response);
         if (!mounted) return;
         // Show success message
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login successful!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('MongoDB Login successful!')),
+        );
         // Navigate to appropriate screen based on user type
         final userType = response['type']?.toLowerCase() ?? 'viewer';
         if (userType == 'admin' || userType == 'editor') {
@@ -50,6 +50,46 @@ class _LoginScreenState extends State<LoginScreen> {
           // For viewers, go back to public home and return success result
           Navigator.pop(context, true);
         }
+      } catch (e) {
+        if (!mounted) return;
+        // Show user-friendly error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorHandler.getUserFriendlyMessage(e)),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _handleFirebaseLogin() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        await _userService.signIn(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        if (!mounted) return;
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Firebase Login successful!')),
+        );
+
+        // Navigate to home screen for Firebase users
+        Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         if (!mounted) return;
         // Show user-friendly error message
@@ -148,13 +188,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
+
+                  // MongoDB Login Button
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: _isLoading ? null : _handleMongoDBLogin,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      backgroundColor: Colors.blue[700],
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -162,7 +205,34 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Log In', style: TextStyle(fontSize: 16)),
+                        : const Text(
+                            'Login with MongoDB',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Firebase Login Button
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _handleFirebaseLogin,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: Colors.orange[600],
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Login with Firebase',
+                            style: TextStyle(fontSize: 16),
+                          ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(

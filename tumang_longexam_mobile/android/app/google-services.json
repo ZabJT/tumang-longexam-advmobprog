@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "537496722345",
+    "project_id": "advmobprog-firebase-4ad86",
+    "storage_bucket": "advmobprog-firebase-4ad86.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537496722345:android:b5186ffd2d1995988c82b8",
+        "android_client_info": {
+          "package_name": "com.example.tumang_longexam_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgyhUoxXTb_O5KRwTE9ygbfcv-QKqsQwY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

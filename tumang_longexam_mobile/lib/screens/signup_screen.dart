@@ -55,7 +55,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return username;
   }
 
-  Future<void> _handleSignUp() async {
+  Future<void> _handleMongoDBSignUp() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -84,9 +84,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         if (!mounted) return;
 
         // Show appropriate message based on user type
-        String message = 'Registration successful!';
+        String message = 'MongoDB Registration successful!';
         if (accountType == 'admin' || accountType == 'editor') {
-          message = 'Registration successful! Please wait for admin approval.';
+          message =
+              'MongoDB Registration successful! Please wait for admin approval.';
         }
 
         ScaffoldMessenger.of(
@@ -95,6 +96,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         // Navigate to public home screen
         Navigator.pushReplacementNamed(context, '/public-home');
+      } catch (e) {
+        if (!mounted) return;
+        // Show user-friendly error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ErrorHandler.getUserFriendlyMessage(e)),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _handleFirebaseSignUp() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Create Firebase account
+        await _userService.createAccount(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        // Update display name with first and last name
+        await _userService.updateUsername(
+          username: '${_firstNameController.text} ${_lastNameController.text}',
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Firebase Registration successful!')),
+        );
+
+        // Navigate to home screen
+        Navigator.pushReplacementNamed(context, '/home');
       } catch (e) {
         if (!mounted) return;
         // Show user-friendly error message
@@ -334,14 +380,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   },
                 ),
                 SizedBox(height: 24.h),
+
+                // MongoDB Sign Up Button
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _handleSignUp,
+                  onPressed: _isLoading ? null : _handleMongoDBSignUp,
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 16.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 2,
+                    backgroundColor: Colors.blue[700],
                   ),
                   child: _isLoading
                       ? SizedBox(
@@ -354,7 +403,40 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                         )
-                      : Text('Sign Up', style: TextStyle(fontSize: 16.sp)),
+                      : Text(
+                          'Sign Up with MongoDB',
+                          style: TextStyle(fontSize: 16.sp),
+                        ),
+                ),
+
+                SizedBox(height: 12.h),
+
+                // Firebase Sign Up Button
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _handleFirebaseSignUp,
+                  style: ElevatedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                    backgroundColor: Colors.orange[600],
+                  ),
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20.h,
+                          width: 20.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : Text(
+                          'Sign Up with Firebase',
+                          style: TextStyle(fontSize: 16.sp),
+                        ),
                 ),
                 SizedBox(height: 16.h),
                 TextButton(

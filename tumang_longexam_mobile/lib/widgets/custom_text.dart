@@ -10,6 +10,7 @@ class CustomText extends StatelessWidget {
   final FontStyle fontStyle;
   final int? maxLines;
   final TextOverflow? overflow;
+  final Color? color;
 
   const CustomText({
     super.key,
@@ -22,6 +23,7 @@ class CustomText extends StatelessWidget {
     this.fontStyle = FontStyle.normal,
     this.maxLines,
     this.overflow,
+    this.color,
   });
 
   @override
@@ -37,6 +39,7 @@ class CustomText extends StatelessWidget {
         fontWeight: fontWeight,
         fontStyle: fontStyle,
         letterSpacing: letterSpacing,
+        color: color,
       ),
     );
   }

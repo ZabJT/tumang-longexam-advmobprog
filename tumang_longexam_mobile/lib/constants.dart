@@ -1,5 +1,7 @@
 // ignore_for_file: constant_identifier_names
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
+import 'services/user_service.dart';
 
 // API - Get host with safe access to dotenv
 String get host {
@@ -20,3 +22,6 @@ void debugHost() {
   }
   print('Final host value: $host');
 }
+
+// Global UserService instance
+final ValueNotifier<UserService> userService = ValueNotifier(UserService());

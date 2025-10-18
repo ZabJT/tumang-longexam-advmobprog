@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'providers/theme_provider.dart';
 import 'screens/settings_screen.dart';
 import 'screens/home_screen.dart';
@@ -29,6 +31,18 @@ void main() async {
       // If .env file doesn't exist, continue with default values
       print('Warning: .env file not found, using default configuration');
     }
+
+    // Initialize Firebase
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print('Firebase initialized successfully');
+    } catch (e) {
+      print('Firebase initialization error: $e');
+      // Continue app execution even if Firebase fails to initialize
+    }
+
     debugHost(); // Debug the host value
     runApp(const MainApp());
   });

@@ -4,6 +4,7 @@ import 'item_screen.dart';
 import 'archive_screen.dart';
 import 'wishlist_screen.dart';
 import 'profile_screen.dart';
+import 'chat_list_screen.dart';
 import '../widgets/custom_text.dart';
 import '../services/user_service.dart';
 
@@ -54,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Define available pages based on user type
     final List<Widget> pages = [
       const ItemScreen(),
+      const ChatListScreen(), // Chat screen for all users
       if (!_isViewer) const ArchiveScreen(), // Hide archive for viewers
       if (_isViewer) const WishlistScreen(), // Only show wishlist for viewers
       const ProfileScreen(),
@@ -62,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Define tab labels based on user type
     final List<String> tabLabels = [
       _isViewer ? 'Items' : 'List of Items', // Change title for admin/editor
+      'Chat', // Chat tab for all users
       if (!_isViewer) 'Archive', // Hide archive for viewers
       if (_isViewer) 'Wishlist', // Only show wishlist for viewers
       'Profile',
@@ -70,36 +73,39 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          elevation: 2,
-          title: CustomText(
-            text: _selectedIndex < tabLabels.length
-                ? tabLabels[_selectedIndex]
-                : 'Home',
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w600,
-          ),
-          actions: [
-            if (_isAdmin) // Show admin approval button for admins
-              IconButton(
-                icon: Icon(Icons.admin_panel_settings, size: 24.sp),
-                onPressed: () =>
-                    Navigator.pushNamed(context, '/admin-approval'),
-                tooltip: 'Pending Approvals',
+        appBar: _selectedIndex == 1
+            ? null
+            : AppBar(
+                // Hide AppBar for Chat tab (index 1)
+                automaticallyImplyLeading: false,
+                elevation: 2,
+                title: CustomText(
+                  text: _selectedIndex < tabLabels.length
+                      ? tabLabels[_selectedIndex]
+                      : 'Home',
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+                actions: [
+                  if (_isAdmin) // Show admin approval button for admins
+                    IconButton(
+                      icon: Icon(Icons.admin_panel_settings, size: 24.sp),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, '/admin-approval'),
+                      tooltip: 'Pending Approvals',
+                    ),
+                  // Show inquiry icon for all authenticated users (admin, editor, viewer)
+                  IconButton(
+                    icon: Icon(Icons.help_outline, size: 24.sp),
+                    onPressed: () => Navigator.pushNamed(context, '/inquiries'),
+                    tooltip: 'My Inquiries',
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.settings, size: 24.sp),
+                    onPressed: () => Navigator.pushNamed(context, '/settings'),
+                  ),
+                ],
               ),
-            // Show inquiry icon for all authenticated users (admin, editor, viewer)
-            IconButton(
-              icon: Icon(Icons.help_outline, size: 24.sp),
-              onPressed: () => Navigator.pushNamed(context, '/inquiries'),
-              tooltip: 'My Inquiries',
-            ),
-            IconButton(
-              icon: Icon(Icons.settings, size: 24.sp),
-              onPressed: () => Navigator.pushNamed(context, '/settings'),
-            ),
-          ],
-        ),
         body: PageView(
           controller: _pageController,
           children: pages,
@@ -121,6 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Items',
                   ),
                   BottomNavigationBarItem(
+                    icon: Icon(Icons.chat_bubble_outline),
+                    label: 'Chat',
+                  ),
+                  BottomNavigationBarItem(
                     icon: Icon(Icons.favorite),
                     label: 'Wishlist',
                   ),
@@ -133,6 +143,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   BottomNavigationBarItem(
                     icon: Icon(Icons.list_alt),
                     label: 'List of Items',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.chat_bubble_outline),
+                    label: 'Chat',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.archive),

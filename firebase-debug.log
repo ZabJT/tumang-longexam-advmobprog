@@ -1,0 +1,11 @@
+[debug] [2025-10-17T12:42:40.438Z] ----------------------------------------------------------------------
+[debug] [2025-10-17T12:42:40.440Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\zabdi\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js login
+[debug] [2025-10-17T12:42:40.441Z] CLI Version:   14.20.0
+[debug] [2025-10-17T12:42:40.441Z] Platform:      win32
+[debug] [2025-10-17T12:42:40.441Z] Node Version:  v22.14.0
+[debug] [2025-10-17T12:42:40.441Z] Time:          Fri Oct 17 2025 20:42:40 GMT+0800 (China Standard Time)
+[debug] [2025-10-17T12:42:40.441Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-10-17T12:42:40.443Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[error] 
+[error] Error: Cannot run login in non-interactive mode. See login:ci to generate a token for use in non-interactive environments.
